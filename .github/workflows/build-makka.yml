@@ -11,14 +11,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download server.js & panel.html, calc sha256
+      - name: Clone upstream & calculate combined sha256
         id: file_info
         run: |
-          mkdir -p .tmp-makka
-          cd .tmp-makka
-          curl -fsSL https://raw.githubusercontent.com/MakkaPakka518/EmbyProxy-VPS/main/server.js -o server.js
-          curl -fsSL https://raw.githubusercontent.com/MakkaPakka518/EmbyProxy-VPS/main/panel.html -o panel.html
-          COMBINED_SHA=$(cat server.js panel.html | sha256sum | awk '{print $1}')
+          git clone --depth 1 https://github.com/MakkaPakka518/EmbyProxy-VPS.git .tmp-src
+          COMBINED_SHA=$(cd .tmp-src && cat server.js panel.html | sha256sum | awk '{print $1}')
           echo "FILES_SHA=$COMBINED_SHA" >> $GITHUB_OUTPUT
           echo "server.js + panel.html sha256: $COMBINED_SHA"
 
@@ -37,12 +34,12 @@ jobs:
           echo "✅ MakkaPakka 文件无变化，跳过构建"
           echo "SKIP_BUILD=1" >> $GITHUB_ENV
 
-      - name: Clone upstream source
+      - name: Prepare temp build dir（不改动仓库MakkaPakka文件夹）
         if: env.SKIP_BUILD != '1'
         run: |
-          git clone --depth 1 https://github.com/MakkaPakka518/EmbyProxy-VPS.git .tmp-src
-          # 只把上游源码覆盖进 MakkaPakka/，不删除目录里仓库自带的 Dockerfile
-          cp -r .tmp-src/. MakkaPakka/
+          mkdir -p build-makka
+          cp -r .tmp-src/* build-makka/
+          cp MakkaPakka/Dockerfile build-makka/
           rm -rf .tmp-src
 
       - name: Login DockerHub
@@ -60,7 +57,7 @@ jobs:
         if: env.SKIP_BUILD != '1'
         uses: docker/build-push-action@v5
         with:
-          context: ./MakkaPakka
+          context: ./build-makka
           push: true
           no-cache: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-makkapakka:latest
