@@ -21,8 +21,7 @@ jobs:
           SHA=$(sha256sum emby-relay | awk '{print $1}')
           echo "RELAY_SHA=$SHA" >> $GITHUB_OUTPUT
           echo "Current relay sha256: $SHA"
-
-          cat > Dockerfile <<EOF
+          cat > Dockerfile <<'DOCKER'
 FROM alpine:latest
 WORKDIR /app
 COPY emby-relay /app/emby-relay
@@ -33,9 +32,8 @@ RUN chmod +x /app/emby-relay \
 VOLUME ["/etc/emby-relay"]
 EXPOSE 2087
 ENTRYPOINT ["/app/emby-relay"]
-EOF
-
-          cat > docker-entrypoint.sh <<'EOF'
+DOCKER
+          cat > docker-entrypoint.sh <<'SH'
 #!/bin/sh
 set -e
 CFG=/etc/emby-relay/config.json
@@ -52,9 +50,8 @@ JSON
   echo "  $BOOT_SECRET"
   echo "================================================"
 fi
-
 exec /app/emby-relay
-EOF
+SH
           chmod +x docker-entrypoint.sh
 
       - name: Cache Dirige relay hash
@@ -111,7 +108,6 @@ EOF
           cd build-makkapakka/check
           curl -fsSL https://raw.githubusercontent.com/MakkaPakka518/EmbyProxy-VPS/main/server.js -o server.js
           curl -fsSL https://raw.githubusercontent.com/MakkaPakka518/EmbyProxy-VPS/main/panel.html -o panel.html
-          # 两个文件内容拼一起算哈希，任一文件变化都会触发重建
           COMBINED_SHA=$(cat server.js panel.html | sha256sum | awk '{print $1}')
           echo "FILES_SHA=$COMBINED_SHA" >> $GITHUB_OUTPUT
           echo "server.js + panel.html combined sha256: $COMBINED_SHA"
@@ -136,14 +132,14 @@ EOF
         run: |
           git clone --depth 1 https://github.com/MakkaPakka518/EmbyProxy-VPS.git build-makkapakka/repo
           cd build-makkapakka/repo
-          cat > Dockerfile <<EOF
+          cat > Dockerfile <<'DOCKER'
 FROM node:22-alpine
 WORKDIR /app
 COPY . ./
 EXPOSE 3333
 VOLUME ["/app/data"]
 CMD ["node","server.js"]
-EOF
+DOCKER
 
       - name: Login DockerHub
         if: env.SKIP_BUILD != '1'
