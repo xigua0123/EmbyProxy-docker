@@ -40,7 +40,6 @@ jobs:
       - name: Clone upstream source
         if: env.SKIP_BUILD != '1'
         run: |
-          rm -rf MakkaPakka/*
           git clone --depth 1 https://github.com/MakkaPakka518/EmbyProxy-VPS.git .tmp-src
           cp -r .tmp-src/* MakkaPakka/
           rm -rf .tmp-src
