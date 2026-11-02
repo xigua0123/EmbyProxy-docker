@@ -1,7 +1,7 @@
 name: Build Dirige EmbyProxy
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -75,13 +75,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Create manifest latest
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
-          platforms: linux/amd64,linux/arm64
-          # 合并两个架构镜像到同一个latest标签
-          build-args: |
-            SKIP=1
+      - name: Combine manifest
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige"
+          docker manifest create --amend ${IMAGE}:latest ${IMAGE}:amd64
+          docker manifest create --amend ${IMAGE}:latest ${IMAGE}:arm64
+          docker manifest push ${IMAGE}:latest
