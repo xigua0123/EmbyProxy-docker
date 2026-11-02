@@ -1,8 +1,8 @@
-name: Build & Push EMBY_CF Relay
+name: Build & Push emby-proxy-dirige
 on:
   schedule:
-    - cron: '0 */6 * * *'   # 每6小时拉一次上游最新二进制
-  workflow_dispatch:          # 支持网页手动点按钮触发
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,7 +16,6 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-amd64 -o emby-relay
           chmod +x emby-relay
           ls -la emby-relay
-          echo "Binary SHA256:"
           sha256sum emby-relay
 
       - name: Login to Docker Hub
