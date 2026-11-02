@@ -5,59 +5,83 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  pre-check:
     runs-on: ubuntu-latest
+    outputs:
+      SKIP_BUILD: ${{ steps.check.outputs.SKIP_BUILD }}
+      BIN_SHA: ${{ steps.check.outputs.BIN_SHA }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download binary and calculate sha256
-        id: relay_info
+      - name: Fetch amd64 bin & calc sha
         run: |
-          cd Dirige
-          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-amd64 -o emby-relay
-          chmod +x emby-relay
-          SHA=$(sha256sum emby-relay | awk '{print $1}')
-          echo "RELAY_SHA=$SHA" >> $GITHUB_OUTPUT
-          echo "Current relay sha256: $SHA"
-
-      - name: Cache by binary hash
-        id: cache_hit
-        uses: actions/cache@v4
-        with:
-          path: .cache/dirige_sha.txt
-          key: dirige-${{ steps.relay_info.outputs.RELAY_SHA }}
-          restore-keys: |
-            dirige-
-
-      - name: Skip build if no change
-        if: steps.cache_hit.outputs.cache-hit == 'true'
+          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-amd64 -o bin-amd64
+          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-arm64 -o bin-arm64
+          SHA_AMD=$(sha256sum bin-amd64 | awk '{print $1}')
+          SHA_ARM=$(sha256sum bin-arm64 | awk '{print $1}')
+          COMBINED_SHA="${SHA_AMD}-${SHA_ARM}"
+          echo "BIN_SHA=$COMBINED_SHA" >> $GITHUB_OUTPUT
+          echo "COMBINED_SHA=$COMBINED_SHA"
+          if [ -f .cache/dirige_sha.txt ]; then
+            OLD=$(cat .cache/dirige_sha.txt)
+            if [ "$OLD" = "$COMBINED_SHA" ]; then
+              echo "SKIP_BUILD=1" >> $GITHUB_OUTPUT
+            else
+              echo "SKIP_BUILD=0" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "SKIP_BUILD=0" >> $GITHUB_OUTPUT
+          fi
+      - name: Save new sha mark
+        if: steps.check.outputs.SKIP_BUILD != '1'
         run: |
-          echo "✅ Dirige 二进制文件无更新，跳过构建"
-          echo "SKIP_BUILD=1" >> $GITHUB_ENV
+          mkdir -p .cache
+          echo ${{ steps.check.outputs.BIN_SHA }} > .cache/dirige_sha.txt
 
+  build:
+    needs: pre-check
+    if: needs.pre-check.outputs.SKIP_BUILD != '1'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download binary ${{ matrix.arch }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-${{ matrix.arch }} -o Dirige/emby-relay
       - name: Login DockerHub
-        if: env.SKIP_BUILD != '1'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Setup Buildx
-        if: env.SKIP_BUILD != '1'
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Build & Push
-        if: env.SKIP_BUILD != '1'
+      - name: Build & push ${{ matrix.arch }}
         uses: docker/build-push-action@v5
         with:
           context: ./Dirige
           push: true
-          no-cache: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:${{ matrix.arch }}
 
-      - name: Save hash marker
-        if: env.SKIP_BUILD != '1'
-        run: |
-          mkdir -p .cache
-          echo ${{ steps.relay_info.outputs.RELAY_SHA }} > .cache/dirige_sha.txt
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Create manifest latest
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
+          platforms: linux/amd64,linux/arm64
+          # 合并两个架构镜像到同一个latest标签
+          build-args: |
+            SKIP=1
