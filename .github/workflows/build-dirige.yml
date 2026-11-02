@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Fetch amd64 bin & calc sha
+      - name: Fetch amd64 & arm64 binary and calc sha
         run: |
           curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-amd64 -o bin-amd64
           curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-arm64 -o bin-arm64
@@ -42,42 +42,28 @@ jobs:
     needs: pre-check
     if: needs.pre-check.outputs.SKIP_BUILD != '1'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Download binary ${{ matrix.arch }}
+
+      - name: Download binaries for build
         run: |
-          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-${{ matrix.arch }} -o Dirige/emby-relay
+          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-amd64 -o Dirige/emby-relay-amd64
+          curl -fsSL https://raw.githubusercontent.com/Dirige/EMBY_CF/master/personal/bin/emby-relay-linux-arm64 -o Dirige/emby-relay-arm64
+
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build & push ${{ matrix.arch }}
+
+      - name: Build multi-arch & push latest
         uses: docker/build-push-action@v5
         with:
           context: ./Dirige
           push: true
-          platforms: linux/${{ matrix.arch }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:${{ matrix.arch }}
-
-  manifest:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Login DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Combine manifest
-        run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige"
-          docker manifest create --amend ${IMAGE}:latest ${IMAGE}:amd64
-          docker manifest create --amend ${IMAGE}:latest ${IMAGE}:arm64
-          docker manifest push ${IMAGE}:latest
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
