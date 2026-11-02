@@ -34,4 +34,4 @@ jobs:
           context: .
           push: true
           no-cache: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/emby-cf-relay:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/emby-proxy-dirige:latest
