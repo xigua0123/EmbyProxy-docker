@@ -1,4 +1,4 @@
-name: Build Dirige EmbyRelay
+name: Build Dirige EmbyProxy
 on:
   schedule:
     - cron: '0 */6 * * *'
@@ -54,7 +54,7 @@ jobs:
           context: ./Dirige
           push: true
           no-cache: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyrelay-dirige:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
 
       - name: Save hash marker
         if: env.SKIP_BUILD != '1'
