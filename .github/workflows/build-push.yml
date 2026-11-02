@@ -1,4 +1,4 @@
-name: Build & Push emby-proxy-dirige
+name: Build & Push embyproxy-dirige
 on:
   schedule:
     - cron: '0 */6 * * *'
@@ -33,4 +33,4 @@ jobs:
           context: .
           push: true
           no-cache: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/emby-proxy-dirige:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
