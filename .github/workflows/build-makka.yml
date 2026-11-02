@@ -23,7 +23,7 @@ jobs:
           echo "server.js + panel.html sha256: $COMBINED_SHA"
 
       - name: Cache file hash
-        id: cache_hash
+        id: cache_hit
         uses: actions/cache@v4
         with:
           path: .cache/makka_sha.txt
@@ -32,7 +32,7 @@ jobs:
             makka-
 
       - name: Skip build if no change
-        if: steps.cache_hash.outputs.cache-hit == 'true'
+        if: steps.cache_hit.outputs.cache-hit == 'true'
         run: |
           echo "✅ MakkaPakka 文件无变化，跳过构建"
           echo "SKIP_BUILD=1" >> $GITHUB_ENV
@@ -41,7 +41,8 @@ jobs:
         if: env.SKIP_BUILD != '1'
         run: |
           git clone --depth 1 https://github.com/MakkaPakka518/EmbyProxy-VPS.git .tmp-src
-          cp -r .tmp-src/* MakkaPakka/
+          # 只把上游源码覆盖进 MakkaPakka/，不删除目录里仓库自带的 Dockerfile
+          cp -r .tmp-src/. MakkaPakka/
           rm -rf .tmp-src
 
       - name: Login DockerHub
@@ -64,7 +65,7 @@ jobs:
           no-cache: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-makkapakka:latest
 
-      - name: Save new hash marker
+      - name: Save hash marker
         if: env.SKIP_BUILD != '1'
         run: |
           mkdir -p .cache
