@@ -1,4 +1,4 @@
-name: Build Dirige EmbyProxy
+name: Build Dirige EmbyRelay
 on:
   schedule:
     - cron: '0 */6 * * *'
@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download relay binary & get sha256
+      - name: Download binary and calculate sha256
         id: relay_info
         run: |
           cd Dirige
@@ -21,8 +21,8 @@ jobs:
           echo "RELAY_SHA=$SHA" >> $GITHUB_OUTPUT
           echo "Current relay sha256: $SHA"
 
-      - name: Cache relay hash
-        id: cache_hash
+      - name: Cache by binary hash
+        id: cache_hit
         uses: actions/cache@v4
         with:
           path: .cache/dirige_sha.txt
@@ -31,9 +31,9 @@ jobs:
             dirige-
 
       - name: Skip build if no change
-        if: steps.cache_hash.outputs.cache-hit == 'true'
+        if: steps.cache_hit.outputs.cache-hit == 'true'
         run: |
-          echo "✅ Dirige relay 未更新，跳过构建"
+          echo "✅ Dirige 二进制文件无更新，跳过构建"
           echo "SKIP_BUILD=1" >> $GITHUB_ENV
 
       - name: Login DockerHub
@@ -54,9 +54,9 @@ jobs:
           context: ./Dirige
           push: true
           no-cache: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyproxy-dirige:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/embyrelay-dirige:latest
 
-      - name: Save new hash marker
+      - name: Save hash marker
         if: env.SKIP_BUILD != '1'
         run: |
           mkdir -p .cache
